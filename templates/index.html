@@ -7,15 +7,12 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        /* 现代化全局背景与字体 */
         body {
             background: linear-gradient(135deg, #f5f7fa 0%, #e4ebf5 100%);
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             min-height: 100vh;
             color: #333;
         }
-
-        /* 卡片全面升级：去边框、大圆角、柔和阴影、微弱毛玻璃 */
         .card {
             border: none !important;
             border-radius: 20px;
@@ -24,11 +21,7 @@
             backdrop-filter: blur(10px);
             transition: transform 0.3s ease;
         }
-        .card:hover {
-            transform: translateY(-5px);
-        }
-
-        /* 卡片头部重构：去掉生硬的色块，改为干净的下划线 */
+        .card:hover { transform: translateY(-5px); }
         .card-header {
             background: transparent !important;
             color: #2b2b2b !important;
@@ -37,8 +30,6 @@
             border-bottom: 2px solid rgba(0,0,0,0.05);
             padding: 1.5rem 1.5rem 1rem;
         }
-
-        /* 按钮现代化：全圆角（胶囊形）、平滑动画 */
         .btn {
             border-radius: 50px;
             font-weight: 500;
@@ -52,8 +43,6 @@
         }
         .btn-primary { background-color: #007aff; border-color: #007aff; }
         .btn-success { background-color: #34c759; border-color: #34c759; }
-
-        /* 拖拽区域优化 */
         #drop-zone {
             border: 2px dashed #cbd5e1 !important;
             border-radius: 15px;
@@ -66,8 +55,6 @@
             border-color: #38bdf8 !important;
             transform: scale(1.02);
         }
-
-        /* 列表项与二维码容器优化 */
         .list-group-item {
             background: transparent;
             border-color: rgba(0,0,0,0.05);
@@ -80,9 +67,7 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
             display: inline-block;
         }
-        .qr-container img {
-            border-radius: 12px;
-        }
+        .qr-container img { border-radius: 12px; }
     </style>
 </head>
 <body class="container mt-4 mb-5">
@@ -157,7 +142,6 @@
     </div>
 
     <script>
-        // 1. 复制文本功能
         document.querySelectorAll('.copy-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const text = this.previousElementSibling.innerText;
@@ -169,38 +153,25 @@
                         this.innerText = originalText;
                         this.classList.replace('btn-secondary', 'btn-outline-primary');
                     }, 2000);
-                }).catch(err => {
-                    alert('复制失败，请手动选择复制。');
-                });
+                }).catch(err => alert('复制失败，请手动选择复制。'));
             });
         });
 
-        // 2. 拖拽与上传进度条功能
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const progressContainer = document.getElementById('progress-container');
         const progressBar = document.getElementById('progress-bar');
 
         dropZone.addEventListener('click', () => fileInput.click());
-
-        dropZone.addEventListener('dragover', (e) => { 
-            e.preventDefault(); 
-            dropZone.classList.add('drag-over'); 
-        });
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZone.classList.remove('drag-over');
-            if(e.dataTransfer.files.length > 0) {
-                uploadFile(e.dataTransfer.files[0]);
-            }
+            if(e.dataTransfer.files.length > 0) uploadFile(e.dataTransfer.files[0]);
         });
-
         fileInput.addEventListener('change', () => {
-            if(fileInput.files.length > 0) {
-                uploadFile(fileInput.files[0]);
-            }
+            if(fileInput.files.length > 0) uploadFile(fileInput.files[0]);
         });
 
         function uploadFile(file) {
@@ -214,7 +185,6 @@
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/', true);
-
             xhr.upload.onprogress = function(e) {
                 if (e.lengthComputable) {
                     const percentComplete = Math.round((e.loaded / e.total) * 100);
@@ -222,7 +192,6 @@
                     progressBar.innerText = '上传中... ' + percentComplete + '%';
                 }
             };
-
             xhr.onload = function() {
                 if (xhr.status === 200) {
                     progressBar.classList.replace('bg-primary', 'bg-success');

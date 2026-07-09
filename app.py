@@ -2,17 +2,26 @@ import os
 import socket
 import io
 import qrcode
+import json
 from flask import Flask, render_template, request, send_from_directory, redirect, url_for, send_file
 
 app = Flask(__name__)
 
-# 配置文件上传目录
+# 配置文件夹和文件路径
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+HISTORY_FILE = 'history.json'
 
-# 在内存中临时存储文字消息
-messages = []
+# 程序启动时，加载历史记录
+if os.path.exists(HISTORY_FILE):
+    with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+        try:
+            messages = json.load(f)
+        except json.JSONDecodeError:
+            messages = []
+else:
+    messages = []
 
 def get_local_ip():
     """获取本机的局域网 IP 地址"""
@@ -47,6 +56,10 @@ def index():
             msg = request.form['message']
             if msg.strip():
                 messages.append(msg)
+                # 写入 JSON 文件，实现永久保存 (ensure_ascii=False 保证中文正常显示)
+                with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(messages, f, ensure_ascii=False, indent=2)
+                    
         # 处理文件/图片上传
         elif 'file' in request.files:
             file = request.files['file']
@@ -56,6 +69,9 @@ def index():
 
     # 获取已上传的文件列表
     files = os.listdir(app.config['UPLOAD_FOLDER'])
+    # 过滤掉可能存在的 .gitkeep 隐藏文件
+    files = [f for f in files if not f.startswith('.')]
+    
     return render_template('index.html', messages=messages, files=files, ip=get_local_ip())
 
 @app.route('/download/<filename>')
