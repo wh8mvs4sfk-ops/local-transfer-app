@@ -101,7 +101,7 @@
         <div class="col-md-6 mb-4">
             <div class="card apple-card h-100">
                 <div class="card-header-apple d-flex justify-content-between align-items-center">
-                    <span>📁 文件与图片 (支持切片)</span>
+                    <span>📁 文件与图片</span>
                     <div class="d-flex align-items-center">
                         {% if is_localhost %}
                         <button class="btn apple-btn-secondary py-1 px-3 me-3 open-folder-trigger" style="font-size: 0.85rem; font-weight: 600;">📂 打开存储目录</button>
@@ -129,7 +129,7 @@
                         {% for file in files %}
                         <li class="list-group-item apple-list-item d-flex justify-content-between align-items-center px-0" data-filename="{{ file }}">
                             <span class="text-truncate" style="max-width: 55%; font-weight: 500; font-size: 0.95rem;">{{ file }}</span>
-                            <div class="d-flex ms-2">
+                            <div class="d-flex ms-2 align-items-center">
                                 {% if is_localhost %}
                                 <button class="btn apple-btn-secondary open-folder-trigger me-2" style="white-space: nowrap;">打开文件夹</button>
                                 {% else %}
@@ -150,6 +150,26 @@
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
+        // ==========================================
+        // 核心新增：本地上传记忆功能
+        // ==========================================
+        function getMyUploads() {
+            try { return JSON.parse(localStorage.getItem('my_uploads') || '[]'); } 
+            catch(e) { return []; }
+        }
+        function addMyUpload(filename) {
+            let uploads = getMyUploads();
+            if (!uploads.includes(filename)) {
+                uploads.push(filename);
+                localStorage.setItem('my_uploads', JSON.stringify(uploads));
+            }
+        }
+        function removeMyUpload(filename) {
+            let uploads = getMyUploads();
+            uploads = uploads.filter(f => f !== filename);
+            localStorage.setItem('my_uploads', JSON.stringify(uploads));
+        }
+
         const socket = io();
         let userPin = localStorage.getItem('access_pin');
 
@@ -160,6 +180,25 @@
         const pinInput = document.getElementById('pin-input');
         const pinSubmit = document.getElementById('pin-submit');
         const pinError = document.getElementById('pin-error');
+
+        // ==========================================
+        // 初始化：页面加载时，把“自己传的”文件标记出来
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!isLocalhost) {
+                const uploads = getMyUploads();
+                document.querySelectorAll('#file-list li').forEach(li => {
+                    const filename = li.getAttribute('data-filename');
+                    if (uploads.includes(filename)) {
+                        const downloadBtn = li.querySelector('.download-btn');
+                        if (downloadBtn) {
+                            // 替换为“本机上传”徽章，看起来更清爽
+                            downloadBtn.outerHTML = `<span class="text-success me-3" style="font-size: 0.9rem; font-weight: 600; white-space: nowrap;">✅ 本机上传</span>`;
+                        }
+                    }
+                });
+            }
+        });
 
         socket.on('connect', () => {
             socket.emit('join_auth_room', { pin: isLocalhost ? systemPin : userPin });
@@ -175,26 +214,18 @@
 
         async function verifyPin(pin) {
             try {
-                const res = await fetch('/api/verify_pin', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pin: pin })
-                });
+                const res = await fetch('/api/verify_pin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: pin }) });
                 const data = await res.json();
                 if (res.ok) {
-                    localStorage.setItem('access_pin', pin);
-                    userPin = pin;
+                    localStorage.setItem('access_pin', pin); userPin = pin;
                     socket.emit('join_auth_room', { pin: pin });
-                    pinOverlay.style.opacity = '0';
-                    setTimeout(() => pinOverlay.style.display = 'none', 500);
+                    pinOverlay.style.opacity = '0'; setTimeout(() => pinOverlay.style.display = 'none', 500);
                 } else { throw new Error(data.message || 'Invalid'); }
             } catch (e) {
                 pinError.classList.remove('d-none');
                 pinError.innerText = e.message === 'Invalid' ? "密码错误或已失效，请检查主机屏幕" : e.message;
-                pinInput.value = '';
-                localStorage.removeItem('access_pin');
-                pinOverlay.style.display = 'flex';
-                pinOverlay.style.opacity = '1';
+                pinInput.value = ''; localStorage.removeItem('access_pin');
+                pinOverlay.style.display = 'flex'; pinOverlay.style.opacity = '1';
             }
         }
 
@@ -205,53 +236,40 @@
         socket.on('disconnect', () => { statusBanner.style.top = '30px'; });
         socket.on('connect', () => {
             if (statusBanner.style.top === '30px') {
-                statusBanner.style.backgroundColor = 'rgba(52, 199, 89, 0.85)';
-                statusBanner.innerText = '✅ 网络已重新连接';
+                statusBanner.style.backgroundColor = 'rgba(52, 199, 89, 0.85)'; statusBanner.innerText = '✅ 网络已重新连接';
                 setTimeout(() => { statusBanner.style.top = '-100px'; setTimeout(() => { statusBanner.style.backgroundColor = 'rgba(255, 59, 48, 0.85)'; statusBanner.innerText = '⚠️ 与主机的网络连接已断开'; }, 600); }, 2000);
             }
         });
 
-        // ==========================================
-        // 主机特权事件：向后端发送打开本地文件夹指令
-        // ==========================================
         document.addEventListener('click', function(e) {
             if (e.target && e.target.classList.contains('open-folder-trigger')) {
-                fetch('/api/open_folder', { method: 'POST' })
-                .catch(err => console.error("无法拉起本地资源管理器:", err));
+                fetch('/api/open_folder', { method: 'POST' }).catch(err => console.error("无法拉起本地资源管理器:", err));
             }
         });
 
-        // 文本发送
         document.getElementById('message-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const msg = document.getElementById('message-input').value.trim();
-            if (msg) {
-                socket.emit('send_message', { message: msg, pin: userPin });
-                document.getElementById('message-input').value = ''; 
-            }
+            if (msg) { socket.emit('send_message', { message: msg, pin: userPin }); document.getElementById('message-input').value = ''; }
         });
 
         socket.on('new_message', function(data) {
-            const noMsg = document.getElementById('no-messages');
-            if (noMsg) noMsg.remove();
+            const noMsg = document.getElementById('no-messages'); if (noMsg) noMsg.remove();
             const li = document.createElement('li');
             li.className = 'list-group-item apple-list-item d-flex justify-content-between align-items-start px-0';
             li.innerHTML = `<pre class="mb-0 text-break msg-text" style="white-space: pre-wrap; max-width: 60%; font-family: inherit; margin: 0; font-size: 0.95rem;">${data.message}</pre><div class="d-flex ms-2"><button class="btn apple-btn-secondary copy-btn me-2" style="white-space: nowrap;">复制</button><button class="btn apple-btn-danger del-msg-btn" style="white-space: nowrap;">删除</button></div>`;
-            const messageList = document.getElementById('message-list');
-            messageList.insertBefore(li, messageList.firstChild);
+            const messageList = document.getElementById('message-list'); messageList.insertBefore(li, messageList.firstChild);
         });
 
         document.getElementById('message-list').addEventListener('click', function(e) {
             if (e.target && e.target.classList.contains('copy-btn')) {
-                const btn = e.target;
-                const text = btn.closest('li').querySelector('.msg-text').innerText;
+                const btn = e.target; const text = btn.closest('li').querySelector('.msg-text').innerText;
                 navigator.clipboard.writeText(text).then(() => {
                     const og = btn.innerText; btn.innerText = '已复制'; btn.style.backgroundColor = 'rgba(52, 199, 89, 0.1)'; btn.style.color = '#34c759';
                     setTimeout(() => { btn.innerText = og; btn.style.backgroundColor = ''; btn.style.color = ''; }, 1800);
                 });
             } else if (e.target && e.target.classList.contains('del-msg-btn')) {
-                const btn = e.target;
-                const text = btn.closest('li').querySelector('.msg-text').innerText;
+                const btn = e.target; const text = btn.closest('li').querySelector('.msg-text').innerText;
                 socket.emit('delete_message', { message: text, pin: userPin });
             }
         });
@@ -261,15 +279,8 @@
             for (let li of items) {
                 const pre = li.querySelector('.msg-text');
                 if (pre && pre.innerText === data.message) {
-                    li.style.transition = 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
-                    li.style.opacity = '0';
-                    li.style.transform = 'translateX(40px)';
-                    setTimeout(() => {
-                        li.remove();
-                        if (document.querySelectorAll('#message-list li:not(#no-messages)').length === 0) {
-                            document.getElementById('message-list').innerHTML = `<li id="no-messages" class="list-group-item text-center text-muted py-4 border-0" style="font-size: 0.9rem;">暂无共享文本</li>`;
-                        }
-                    }, 500);
+                    li.style.transition = 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)'; li.style.opacity = '0'; li.style.transform = 'translateX(40px)';
+                    setTimeout(() => { li.remove(); if (document.querySelectorAll('#message-list li:not(#no-messages)').length === 0) { document.getElementById('message-list').innerHTML = `<li id="no-messages" class="list-group-item text-center text-muted py-4 border-0" style="font-size: 0.9rem;">暂无共享文本</li>`; } }, 500);
                     break;
                 }
             }
@@ -278,7 +289,6 @@
         document.getElementById('ttl-select').addEventListener('change', function() { socket.emit('update_ttl', { ttl: this.value, pin: userPin }); });
         socket.on('ttl_updated', function(data) { document.getElementById('ttl-select').value = data.ttl; });
 
-        // 切片上传
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const progressContainer = document.getElementById('progress-container');
@@ -288,94 +298,78 @@
         dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault(); dropZone.classList.remove('drag-over');
-            if(e.dataTransfer.files.length > 0) uploadFile(e.dataTransfer.files[0]);
-        });
+        dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); if(e.dataTransfer.files.length > 0) uploadFile(e.dataTransfer.files[0]); });
         fileInput.addEventListener('change', () => { if(fileInput.files.length > 0) uploadFile(fileInput.files[0]); });
 
         async function uploadFile(file) {
             const CHUNK_SIZE = 2 * 1024 * 1024; 
             const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
             const fileId = Math.random().toString(36).substring(2) + Date.now().toString(36); 
-            progressContainer.classList.remove('d-none');
-            progressBar.style.width = '0%'; 
-            progressBar.style.backgroundColor = '#0071e3';
+            progressContainer.classList.remove('d-none'); progressBar.style.width = '0%'; progressBar.style.backgroundColor = '#0071e3';
 
             for (let i = 0; i < totalChunks; i++) {
                 const chunk = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
                 const formData = new FormData();
-                formData.append('chunk', chunk);
-                formData.append('filename', file.name);
-                formData.append('chunk_index', i);
-                formData.append('total_chunks', totalChunks);
-                formData.append('file_id', fileId);
+                formData.append('chunk', chunk); formData.append('filename', file.name); formData.append('chunk_index', i); formData.append('total_chunks', totalChunks); formData.append('file_id', fileId);
 
                 try {
-                    const response = await fetch('/upload_chunk', {
-                        method: 'POST',
-                        headers: { 'X-PIN': userPin }, 
-                        body: formData
-                    });
+                    const response = await fetch('/upload_chunk', { method: 'POST', headers: { 'X-PIN': userPin }, body: formData });
                     if (!response.ok) throw new Error('Upload failed');
                     const percentComplete = Math.round(((i + 1) / totalChunks) * 100);
                     progressBar.style.width = percentComplete + '%';
                 } catch (error) {
-                    progressBar.style.backgroundColor = '#ff3b30';
-                    alert("传输中断或授权过期，请刷新页面重新输入 PIN 码。");
-                    return;
+                    progressBar.style.backgroundColor = '#ff3b30'; alert("传输中断或授权过期，请刷新页面重新输入 PIN 码。"); return;
                 }
             }
+            // 核心新增：文件顺利传完后，给浏览器自己的备忘录里记下一笔
+            addMyUpload(file.name);
+
             progressBar.style.backgroundColor = '#34c759';
             setTimeout(() => progressContainer.classList.add('d-none'), 1000);
             fileInput.value = ''; 
         }
 
         socket.on('new_file', function(data) {
-            const noFile = document.getElementById('no-files');
-            if (noFile) noFile.remove();
+            const noFile = document.getElementById('no-files'); if (noFile) noFile.remove();
             const li = document.createElement('li');
             li.className = 'list-group-item apple-list-item d-flex justify-content-between align-items-center px-0';
             li.setAttribute('data-filename', data.filename);
             
-            // 动态感知：新文件到达时，根据当前客户端是主机还是客机，动态组装交互组件
+            // 实时感知：刚传完新文件时，立刻查一下备忘录，确认是不是自己传的
+            let isMyUpload = getMyUploads().includes(data.filename);
             let actionBtn = '';
+            
             if (isLocalhost) {
                 actionBtn = `<button class="btn apple-btn-secondary open-folder-trigger me-2" style="white-space: nowrap;">打开文件夹</button>`;
+            } else if (isMyUpload) {
+                // 如果是自己传的，展示已上传标识
+                actionBtn = `<span class="text-success me-3" style="font-size: 0.9rem; font-weight: 600; white-space: nowrap;">✅ 本机上传</span>`;
             } else {
                 actionBtn = `<a href="/download/${encodeURIComponent(data.filename)}?pin=${userPin}" class="btn apple-btn-secondary download-btn me-2" style="white-space: nowrap;">下载</a>`;
             }
             
-            li.innerHTML = `<span class="text-truncate" style="max-width: 55%; font-weight: 500; font-size: 0.95rem;">${data.filename}</span><div class="d-flex ms-2">${actionBtn}<button class="btn apple-btn-danger del-file-btn" style="white-space: nowrap;">删除</button></div>`;
+            li.innerHTML = `<span class="text-truncate" style="max-width: 55%; font-weight: 500; font-size: 0.95rem;">${data.filename}</span><div class="d-flex ms-2 align-items-center">${actionBtn}<button class="btn apple-btn-danger del-file-btn" style="white-space: nowrap;">删除</button></div>`;
             fileList.insertBefore(li, fileList.firstChild);
         });
 
         document.addEventListener('click', function(e) {
             if (e.target && e.target.classList.contains('download-btn')) {
                 const href = e.target.getAttribute('href');
-                if (!href.includes('?pin=')) {
-                    e.preventDefault();
-                    window.location.href = href + '?pin=' + userPin;
-                }
+                if (!href.includes('?pin=')) { e.preventDefault(); window.location.href = href + '?pin=' + userPin; }
             } else if (e.target && e.target.classList.contains('del-file-btn')) {
-                const li = e.target.closest('li');
-                const filename = li.getAttribute('data-filename');
+                const li = e.target.closest('li'); const filename = li.getAttribute('data-filename');
                 socket.emit('delete_file', { filename: filename, pin: userPin });
             }
         });
 
         socket.on('file_deleted', function(data) {
+            // 核心新增：如果文件被删除了，顺便把本地备忘录里的记录也清掉
+            removeMyUpload(data.filename);
+
             const li = document.querySelector(`li[data-filename="${CSS.escape(data.filename)}"]`);
             if (li) {
-                li.style.transition = 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
-                li.style.opacity = '0';
-                li.style.transform = 'translateX(40px)';
-                setTimeout(() => {
-                    li.remove();
-                    if (fileList.children.length === 0) {
-                        fileList.innerHTML = `<li id="no-files" class="list-group-item text-center text-muted py-4 border-0" style="font-size: 0.9rem;">暂无接收文件</li>`;
-                    }
-                }, 500);
+                li.style.transition = 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)'; li.style.opacity = '0'; li.style.transform = 'translateX(40px)';
+                setTimeout(() => { li.remove(); if (fileList.children.length === 0) { fileList.innerHTML = `<li id="no-files" class="list-group-item text-center text-muted py-4 border-0" style="font-size: 0.9rem;">暂无接收文件</li>`; } }, 500);
             }
         });
     </script>
