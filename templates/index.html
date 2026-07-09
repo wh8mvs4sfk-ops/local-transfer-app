@@ -2,53 +2,67 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="https://api.iconify.design/sf-symbols:airdrop.svg">
+    
     <title>局域网快传</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f5f5f7; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1d1d1f; -webkit-font-smoothing: antialiased; letter-spacing: -0.011em; min-height: 100vh; padding-top: 2rem; }
+        body { background-color: #f5f5f7; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; color: #1d1d1f; -webkit-font-smoothing: antialiased; letter-spacing: -0.011em; min-height: 100vh; padding-top: 2rem; }
         .apple-card { border: 1px solid rgba(0, 0, 0, 0.04) !important; border-radius: 22px !important; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.02); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
-        .apple-card:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.04); background: rgba(255, 255, 255, 0.8); }
         .card-header-apple { background: transparent; font-size: 1.1rem; font-weight: 600; color: #1d1d1f; padding: 1.5rem 1.5rem 0.5rem; border: none; }
         .apple-input { background-color: rgba(0, 0, 0, 0.03) !important; border: none !important; border-radius: 14px !important; padding: 0.8rem 1rem !important; color: #1d1d1f !important; font-size: 0.95rem; transition: all 0.3s ease; }
         .apple-input:focus { background-color: rgba(0, 0, 0, 0.01) !important; box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15) !important; }
         .apple-btn-primary { background-color: #0071e3 !important; border: none !important; color: #ffffff !important; border-radius: 40px !important; font-weight: 500; padding: 0.7rem 1.5rem; font-size: 0.95rem; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
         .apple-btn-primary:hover { background-color: #0077ed !important; transform: scale(1.01); }
         .apple-btn-secondary { background-color: rgba(0, 113, 227, 0.08) !important; color: #0071e3 !important; border: none !important; border-radius: 40px !important; font-weight: 500; padding: 0.4rem 1.2rem; font-size: 0.85rem; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-        .apple-btn-secondary:hover { background-color: rgba(0, 113, 227, 0.15) !important; }
         #drop-zone { border: 1px dashed rgba(0, 0, 0, 0.15) !important; border-radius: 16px; background-color: rgba(0, 0, 0, 0.01); cursor: pointer; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-        #drop-zone:hover { background-color: rgba(0, 0, 0, 0.03); border-color: rgba(0, 0, 0, 0.3) !important; }
-        .drag-over { background-color: rgba(0, 113, 227, 0.05) !important; border-color: #0071e3 !important; transform: scale(1.01); }
-        
         .apple-list-item { background: transparent !important; border: none !important; border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important; padding: 1rem 1.5rem !important; animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-        .apple-list-item:last-child { border-bottom: none !important; }
-        .text-secondary-apple { color: #6e6e73 !important; }
         .qr-widget { background: #ffffff; border-radius: 28px; padding: 1.8rem; box-shadow: 0 10px 40px rgba(0,0,0,0.02); display: inline-block; border: 1px solid rgba(0,0,0,0.02); }
-        .qr-widget img { border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
-        
-        /* 断网提示栏样式 (毛玻璃 iOS 风格) */
-        #connection-status {
-            position: fixed; top: -100px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 59, 48, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            color: white; padding: 0.6rem 2rem; border-radius: 50px; font-weight: 500; font-size: 0.95rem;
-            box-shadow: 0 10px 30px rgba(255, 59, 48, 0.3); z-index: 1050;
-            transition: top 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
+        #connection-status { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: rgba(255, 59, 48, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); color: white; padding: 0.6rem 2rem; border-radius: 50px; font-weight: 500; font-size: 0.95rem; box-shadow: 0 10px 30px rgba(255, 59, 48, 0.3); z-index: 1050; transition: top 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 验证 PIN 码的极致毛玻璃遮罩层 */
+        #pin-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(245, 245, 247, 0.85); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            z-index: 9999; display: flex; justify-content: center; align-items: center;
+            transition: opacity 0.5s ease;
+        }
+        .pin-box { background: #ffffff; padding: 2.5rem 3rem; border-radius: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.05); text-align: center; max-width: 400px; width: 90%; border: 1px solid rgba(0,0,0,0.05); }
     </style>
 </head>
 <body class="container pb-5">
     
-    <div id="connection-status">⚠️ 与主机的网络连接已断开，请检查 Wi-Fi</div>
+    <div id="pin-overlay">
+        <div class="pin-box">
+            <h3 style="font-weight: 700; margin-bottom: 0.5rem;">局域网安全锁</h3>
+            <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 2rem;">请输入主机上显示的 4 位数 PIN 码以访问</p>
+            <input type="password" id="pin-input" class="form-control apple-input text-center mb-3" placeholder="••••" maxlength="4" style="font-size: 2rem; letter-spacing: 0.5rem; font-weight: bold;" inputmode="numeric" pattern="[0-9]*">
+            <button id="pin-submit" class="btn apple-btn-primary w-100 py-2" style="font-size: 1.05rem;">解锁访问权限</button>
+            <p id="pin-error" class="text-danger mt-3 mb-0 d-none" style="font-size: 0.85rem; font-weight: 500;">密码错误或已失效，请检查主机屏幕</p>
+        </div>
+    </div>
 
-    <div class="text-center mb-5">
-        <h1 class="mb-4" style="font-size: 2.2rem; font-weight: 700; letter-spacing: -0.022em;">局域网快传</h1>
+    <div id="connection-status">⚠️ 与主机的网络连接已断开</div>
+
+    <div class="text-center mb-5" id="main-content">
+        <h1 class="mb-4" style="font-size: 2.2rem; font-weight: 700;">局域网快传</h1>
         <div class="qr-widget">
             <img src="{{ url_for('get_qrcode') }}" alt="QR" width="150" height="150">
-            <p class="text-secondary-apple mt-3 mb-1" style="font-size: 0.85rem; font-weight: 500;">使用其他设备扫描直连</p>
-            <span style="font-size: 1.05rem; font-weight: 600; color: #0071e3;">http://{{ ip }}:5000</span>
+            <p class="text-muted mt-3 mb-1" style="font-size: 0.85rem; font-weight: 500;">使用手机扫码并添加到主屏幕</p>
+            <span style="font-size: 1.05rem; font-weight: 600; color: #0071e3; display: block; margin-bottom: 8px;">http://{{ ip }}:5000</span>
+            
+            {% if is_localhost %}
+            <div class="mt-3 mx-auto p-3" style="background: rgba(0,113,227,0.05); border-radius: 16px; border: 1px solid rgba(0,113,227,0.1);">
+                <div style="font-size: 0.8rem; color: #0071e3; font-weight: 600; margin-bottom: 4px;">当前局域网连接 PIN 码</div>
+                <div style="font-size: 2.8rem; font-weight: 800; letter-spacing: 12px; color: #1d1d1f; font-family: monospace; margin-left: 12px;">{{ access_pin }}</div>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -59,11 +73,11 @@
                 <div class="card-body px-4 pb-4">
                     <form id="message-form">
                         <div class="mb-3">
-                            <textarea id="message-input" class="form-control apple-input" rows="3" placeholder="在此输入文字、段落或网址链接..." style="resize: none;" required></textarea>
+                            <textarea id="message-input" class="form-control apple-input" rows="3" placeholder="在此输入文字..." required></textarea>
                         </div>
                         <button type="submit" id="msg-submit-btn" class="btn apple-btn-primary w-100">共享至局域网</button>
                     </form>
-                    <h6 class="text-secondary-apple mt-4 mb-3" style="font-weight: 600; font-size: 0.85rem;">历史共享记录 (上限50条)</h6>
+                    <h6 class="text-muted mt-4 mb-3" style="font-weight: 600; font-size: 0.85rem;">历史共享记录</h6>
                     <ul class="list-group list-group-flush" id="message-list">
                         {% for msg in messages|reverse %}
                         <li class="list-group-item apple-list-item d-flex justify-content-between align-items-start px-0">
@@ -82,14 +96,12 @@
         <div class="col-md-6 mb-4">
             <div class="card apple-card h-100">
                 <div class="card-header-apple d-flex justify-content-between align-items-center">
-                    <span>📁 文件与图片</span>
+                    <span>📁 文件与图片 (支持切片)</span>
                     <div class="d-flex align-items-center">
-                        <span class="text-secondary-apple me-2" style="font-size: 0.8rem; font-weight: 500;">销毁时效:</span>
+                        <span class="text-muted me-2" style="font-size: 0.8rem; font-weight: 500;">销毁时效:</span>
                         <select id="ttl-select" class="apple-input py-1 px-2" style="font-size: 0.85rem; width: auto; cursor: pointer;">
-                            <option value="60" {% if current_ttl == 60 %}selected{% endif %}>1 分钟测试</option>
                             <option value="3600" {% if current_ttl == 3600 %}selected{% endif %}>1 小时</option>
                             <option value="86400" {% if current_ttl == 86400 %}selected{% endif %}>24 小时</option>
-                            <option value="604800" {% if current_ttl == 604800 %}selected{% endif %}>7 天</option>
                         </select>
                     </div>
                 </div>
@@ -97,19 +109,19 @@
                 <div class="card-body px-4 pb-4">
                     <div id="drop-zone" class="p-5 text-center mb-3">
                         <div style="font-size: 2.5rem; margin-bottom: 0.5rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));">💧</div>
-                        <p class="mb-0" style="font-weight: 500; font-size: 0.95rem;">点击选择文件，或将文件拖拽至此</p>
-                        <p class="text-secondary-apple mb-0" style="font-size: 0.8rem; margin-top: 2px;">支持图片、视频及各类文档</p>
+                        <p class="mb-0" style="font-weight: 500; font-size: 0.95rem;">点击选择或拖拽文件</p>
+                        <p class="text-muted mb-0" style="font-size: 0.8rem; margin-top: 2px;">支持超大文件极速切片传输</p>
                         <input type="file" id="file-input" class="d-none">
                     </div>
                     <div class="progress d-none mb-3" id="progress-container" style="height: 10px; border-radius: 10px; background-color: rgba(0,0,0,0.05);">
                         <div id="progress-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%; border-radius: 10px; transition: width 0.1s linear;"></div>
                     </div>
-                    <h6 class="text-secondary-apple mt-4 mb-3" style="font-weight: 600; font-size: 0.85rem;">已接收文件列表</h6>
+                    <h6 class="text-muted mt-4 mb-3" style="font-weight: 600; font-size: 0.85rem;">已接收文件列表</h6>
                     <ul class="list-group list-group-flush" id="file-list">
                         {% for file in files %}
                         <li class="list-group-item apple-list-item d-flex justify-content-between align-items-center px-0" data-filename="{{ file }}">
                             <span class="text-truncate" style="max-width: 72%; font-weight: 500; font-size: 0.95rem;">{{ file }}</span>
-                            <a href="{{ url_for('download', filename=file) }}" class="btn apple-btn-secondary">下载</a>
+                            <a href="{{ url_for('download', filename=file) }}" class="btn apple-btn-secondary download-btn">下载</a>
                         </li>
                         {% endfor %}
                         {% if not files %}
@@ -124,86 +136,112 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
         const socket = io();
+        let userPin = localStorage.getItem('access_pin');
 
-        // 核心优化：断线重连感知
+        // =========================================================
+        // 1. PIN 码验证与遮罩逻辑 (识别本机免密)
+        // =========================================================
+        const isLocalhost = {{ 'true' if is_localhost else 'false' }};
+        const systemPin = "{{ access_pin }}"; // 只有本机这里才有真实数字，客机这里是空字符串
+
+        const pinOverlay = document.getElementById('pin-overlay');
+        const pinInput = document.getElementById('pin-input');
+        const pinSubmit = document.getElementById('pin-submit');
+        const pinError = document.getElementById('pin-error');
+
+        if (isLocalhost) {
+            // 本机访问：自动获取后端下发的 systemPin 并隐藏遮罩
+            userPin = systemPin;
+            localStorage.setItem('access_pin', systemPin);
+            pinOverlay.style.display = 'none'; 
+        } else {
+            // 客机访问：如果有本地缓存的 PIN，尝试静默验证
+            if (userPin) {
+                verifyPin(userPin);
+            }
+        }
+
+        async function verifyPin(pin) {
+            try {
+                const res = await fetch('/api/verify_pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin: pin })
+                });
+                if (res.ok) {
+                    localStorage.setItem('access_pin', pin);
+                    userPin = pin;
+                    pinOverlay.style.opacity = '0';
+                    setTimeout(() => pinOverlay.style.display = 'none', 500);
+                } else {
+                    throw new Error('Invalid');
+                }
+            } catch (e) {
+                pinError.classList.remove('d-none');
+                pinInput.value = '';
+                localStorage.removeItem('access_pin');
+                pinOverlay.style.display = 'flex';
+                pinOverlay.style.opacity = '1';
+            }
+        }
+
+        pinSubmit.addEventListener('click', () => verifyPin(pinInput.value));
+        pinInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') verifyPin(pinInput.value); });
+
+        // 断网重连交互
         const statusBanner = document.getElementById('connection-status');
-        const msgSubmitBtn = document.getElementById('msg-submit-btn');
-
-        socket.on('disconnect', () => {
-            statusBanner.style.top = '30px'; // 弹出警告
-            msgSubmitBtn.disabled = true; // 禁用发送，防止数据丢失
-            msgSubmitBtn.innerText = '网络断开...';
-        });
-
+        socket.on('disconnect', () => { statusBanner.style.top = '30px'; });
         socket.on('connect', () => {
             if (statusBanner.style.top === '30px') {
-                statusBanner.style.backgroundColor = 'rgba(52, 199, 89, 0.85)'; // 变成绿色
+                statusBanner.style.backgroundColor = 'rgba(52, 199, 89, 0.85)';
                 statusBanner.innerText = '✅ 网络已重新连接';
-                setTimeout(() => { 
-                    statusBanner.style.top = '-100px'; 
-                    setTimeout(() => {
-                        statusBanner.style.backgroundColor = 'rgba(255, 59, 48, 0.85)'; // 恢复原本颜色备用
-                        statusBanner.innerText = '⚠️ 与主机的网络连接已断开，请检查 Wi-Fi';
-                    }, 600);
-                }, 2000);
+                setTimeout(() => { statusBanner.style.top = '-100px'; setTimeout(() => { statusBanner.style.backgroundColor = 'rgba(255, 59, 48, 0.85)'; statusBanner.innerText = '⚠️ 与主机的网络连接已断开'; }, 600); }, 2000);
             }
-            msgSubmitBtn.disabled = false;
-            msgSubmitBtn.innerText = '共享至局域网';
         });
 
-        // 1. 文本逻辑 (限制前端渲染条数与后端同步)
-        const messageForm = document.getElementById('message-form');
-        const messageInput = document.getElementById('message-input');
-        const messageList = document.getElementById('message-list');
-
-        messageForm.addEventListener('submit', function(e) {
+        // =========================================================
+        // 2. 文本逻辑 (带 PIN 码发包防伪)
+        // =========================================================
+        document.getElementById('message-form').addEventListener('submit', function(e) {
             e.preventDefault();
-            const msg = messageInput.value.trim();
+            const msg = document.getElementById('message-input').value.trim();
             if (msg) {
-                socket.emit('send_message', { message: msg });
-                messageInput.value = ''; 
+                socket.emit('send_message', { message: msg, pin: userPin });
+                document.getElementById('message-input').value = ''; 
             }
         });
 
         socket.on('new_message', function(data) {
             const noMsg = document.getElementById('no-messages');
             if (noMsg) noMsg.remove();
-            
-            // 优化：保持页面最多显示 50 条
-            if (messageList.children.length >= 50) {
-                messageList.removeChild(messageList.lastChild);
-            }
-
             const li = document.createElement('li');
             li.className = 'list-group-item apple-list-item d-flex justify-content-between align-items-start px-0';
             li.innerHTML = `<pre class="mb-0 text-break" style="white-space: pre-wrap; max-width: 78%; font-family: inherit; margin: 0; font-size: 0.95rem;">${data.message}</pre><button class="btn apple-btn-secondary copy-btn">复制</button>`;
+            const messageList = document.getElementById('message-list');
             messageList.insertBefore(li, messageList.firstChild);
         });
 
-        messageList.addEventListener('click', function(e) {
+        document.getElementById('message-list').addEventListener('click', function(e) {
             if (e.target && e.target.classList.contains('copy-btn')) {
                 const btn = e.target;
-                const text = btn.previousElementSibling.innerText;
-                navigator.clipboard.writeText(text).then(() => {
-                    const og = btn.innerText;
-                    btn.innerText = '已复制';
-                    btn.style.backgroundColor = 'rgba(52, 199, 89, 0.1)';
-                    btn.style.color = '#34c759';
+                navigator.clipboard.writeText(btn.previousElementSibling.innerText).then(() => {
+                    const og = btn.innerText; btn.innerText = '已复制'; btn.style.backgroundColor = 'rgba(52, 199, 89, 0.1)'; btn.style.color = '#34c759';
                     setTimeout(() => { btn.innerText = og; btn.style.backgroundColor = ''; btn.style.color = ''; }, 1800);
                 });
             }
         });
 
-        // 2. 文件与 TTL 逻辑
+        document.getElementById('ttl-select').addEventListener('change', function() { socket.emit('update_ttl', { ttl: this.value, pin: userPin }); });
+        socket.on('ttl_updated', function(data) { document.getElementById('ttl-select').value = data.ttl; });
+
+        // =========================================================
+        // 3. 超大文件切片上传核心逻辑 (Chunked Upload)
+        // =========================================================
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const progressContainer = document.getElementById('progress-container');
         const progressBar = document.getElementById('progress-bar');
         const fileList = document.getElementById('file-list');
-        const ttlSelect = document.getElementById('ttl-select');
-
-        ttlSelect.addEventListener('change', function() { socket.emit('update_ttl', { ttl: this.value }); });
-        socket.on('ttl_updated', function(data) { ttlSelect.value = data.ttl; });
 
         dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
@@ -214,20 +252,46 @@
         });
         fileInput.addEventListener('change', () => { if(fileInput.files.length > 0) uploadFile(fileInput.files[0]); });
 
-        function uploadFile(file) {
-            const formData = new FormData(); formData.append('file', file);
+        async function uploadFile(file) {
+            // 切片大小：2MB
+            const CHUNK_SIZE = 2 * 1024 * 1024; 
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+            const fileId = Math.random().toString(36).substring(2) + Date.now().toString(36); 
+            
             progressContainer.classList.remove('d-none');
-            progressBar.style.width = '0%'; progressBar.style.backgroundColor = '#0071e3';
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/', true);
-            xhr.upload.onprogress = (e) => { if (e.lengthComputable) { progressBar.style.width = Math.round((e.loaded / e.total) * 100) + '%'; } };
-            xhr.onload = () => {
-                if (xhr.status === 200) {
-                    progressBar.style.backgroundColor = '#34c759';
-                    setTimeout(() => progressContainer.classList.add('d-none'), 1000);
-                } else progressBar.style.backgroundColor = '#ff3b30';
-            };
-            xhr.send(formData);
+            progressBar.style.width = '0%'; 
+            progressBar.style.backgroundColor = '#0071e3';
+
+            for (let i = 0; i < totalChunks; i++) {
+                const chunk = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+                const formData = new FormData();
+                formData.append('chunk', chunk);
+                formData.append('filename', file.name);
+                formData.append('chunk_index', i);
+                formData.append('total_chunks', totalChunks);
+                formData.append('file_id', fileId);
+
+                try {
+                    const response = await fetch('/upload_chunk', {
+                        method: 'POST',
+                        headers: { 'X-PIN': userPin }, // Header 级验证
+                        body: formData
+                    });
+                    
+                    if (!response.ok) throw new Error('Upload failed');
+                    
+                    const percentComplete = Math.round(((i + 1) / totalChunks) * 100);
+                    progressBar.style.width = percentComplete + '%';
+                } catch (error) {
+                    progressBar.style.backgroundColor = '#ff3b30';
+                    alert("传输中断或授权过期，请刷新页面重新输入 PIN 码。");
+                    return;
+                }
+            }
+
+            progressBar.style.backgroundColor = '#34c759';
+            setTimeout(() => progressContainer.classList.add('d-none'), 1000);
+            fileInput.value = ''; 
         }
 
         socket.on('new_file', function(data) {
@@ -236,8 +300,20 @@
             const li = document.createElement('li');
             li.className = 'list-group-item apple-list-item d-flex justify-content-between align-items-center px-0';
             li.setAttribute('data-filename', data.filename);
-            li.innerHTML = `<span class="text-truncate" style="max-width: 72%; font-weight: 500; font-size: 0.95rem;">${data.filename}</span><a href="/download/${encodeURIComponent(data.filename)}" class="btn apple-btn-secondary">下载</a>`;
+            // 附带 PIN 码下载，保证直链保护
+            li.innerHTML = `<span class="text-truncate" style="max-width: 72%; font-weight: 500; font-size: 0.95rem;">${data.filename}</span><a href="/download/${encodeURIComponent(data.filename)}?pin=${userPin}" class="btn apple-btn-secondary download-btn">下载</a>`;
             fileList.insertBefore(li, fileList.firstChild);
+        });
+
+        // 绑定已有文件的下载按钮点击事件，为其动态挂载 PIN 码参数
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('download-btn')) {
+                const href = e.target.getAttribute('href');
+                if (!href.includes('?pin=')) {
+                    e.preventDefault();
+                    window.location.href = href + '?pin=' + userPin;
+                }
+            }
         });
 
         socket.on('file_deleted', function(data) {
