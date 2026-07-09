@@ -7,7 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f5f5f7; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1d1d1f; -webkit-font-smoothing: antialiased; letter-spacing: -0.011em; min-height: 100vh; }
+        body { background-color: #f5f5f7; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1d1d1f; -webkit-font-smoothing: antialiased; letter-spacing: -0.011em; min-height: 100vh; padding-top: 2rem; }
         .apple-card { border: 1px solid rgba(0, 0, 0, 0.04) !important; border-radius: 22px !important; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.02); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
         .apple-card:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.04); background: rgba(255, 255, 255, 0.8); }
         .card-header-apple { background: transparent; font-size: 1.1rem; font-weight: 600; color: #1d1d1f; padding: 1.5rem 1.5rem 0.5rem; border: none; }
@@ -27,11 +27,22 @@
         .qr-widget { background: #ffffff; border-radius: 28px; padding: 1.8rem; box-shadow: 0 10px 40px rgba(0,0,0,0.02); display: inline-block; border: 1px solid rgba(0,0,0,0.02); }
         .qr-widget img { border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
         
+        /* 断网提示栏样式 (毛玻璃 iOS 风格) */
+        #connection-status {
+            position: fixed; top: -100px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 59, 48, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            color: white; padding: 0.6rem 2rem; border-radius: 50px; font-weight: 500; font-size: 0.95rem;
+            box-shadow: 0 10px 30px rgba(255, 59, 48, 0.3); z-index: 1050;
+            transition: top 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
         @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="container py-5">
+<body class="container pb-5">
     
+    <div id="connection-status">⚠️ 与主机的网络连接已断开，请检查 Wi-Fi</div>
+
     <div class="text-center mb-5">
         <h1 class="mb-4" style="font-size: 2.2rem; font-weight: 700; letter-spacing: -0.022em;">局域网快传</h1>
         <div class="qr-widget">
@@ -50,9 +61,9 @@
                         <div class="mb-3">
                             <textarea id="message-input" class="form-control apple-input" rows="3" placeholder="在此输入文字、段落或网址链接..." style="resize: none;" required></textarea>
                         </div>
-                        <button type="submit" class="btn apple-btn-primary w-100">共享至局域网</button>
+                        <button type="submit" id="msg-submit-btn" class="btn apple-btn-primary w-100">共享至局域网</button>
                     </form>
-                    <h6 class="text-secondary-apple mt-4 mb-3" style="font-weight: 600; font-size: 0.85rem;">历史共享记录</h6>
+                    <h6 class="text-secondary-apple mt-4 mb-3" style="font-weight: 600; font-size: 0.85rem;">历史共享记录 (上限50条)</h6>
                     <ul class="list-group list-group-flush" id="message-list">
                         {% for msg in messages|reverse %}
                         <li class="list-group-item apple-list-item d-flex justify-content-between align-items-start px-0">
@@ -75,8 +86,7 @@
                     <div class="d-flex align-items-center">
                         <span class="text-secondary-apple me-2" style="font-size: 0.8rem; font-weight: 500;">销毁时效:</span>
                         <select id="ttl-select" class="apple-input py-1 px-2" style="font-size: 0.85rem; width: auto; cursor: pointer;">
-                            <option value="10" {% if current_ttl == 10 %}selected{% endif %}>10 秒 (测试)</option>
-                            <option value="60" {% if current_ttl == 60 %}selected{% endif %}>1 分钟</option>
+                            <option value="60" {% if current_ttl == 60 %}selected{% endif %}>1 分钟测试</option>
                             <option value="3600" {% if current_ttl == 3600 %}selected{% endif %}>1 小时</option>
                             <option value="86400" {% if current_ttl == 86400 %}selected{% endif %}>24 小时</option>
                             <option value="604800" {% if current_ttl == 604800 %}selected{% endif %}>7 天</option>
@@ -115,7 +125,33 @@
     <script>
         const socket = io();
 
-        // 1. 文本逻辑
+        // 核心优化：断线重连感知
+        const statusBanner = document.getElementById('connection-status');
+        const msgSubmitBtn = document.getElementById('msg-submit-btn');
+
+        socket.on('disconnect', () => {
+            statusBanner.style.top = '30px'; // 弹出警告
+            msgSubmitBtn.disabled = true; // 禁用发送，防止数据丢失
+            msgSubmitBtn.innerText = '网络断开...';
+        });
+
+        socket.on('connect', () => {
+            if (statusBanner.style.top === '30px') {
+                statusBanner.style.backgroundColor = 'rgba(52, 199, 89, 0.85)'; // 变成绿色
+                statusBanner.innerText = '✅ 网络已重新连接';
+                setTimeout(() => { 
+                    statusBanner.style.top = '-100px'; 
+                    setTimeout(() => {
+                        statusBanner.style.backgroundColor = 'rgba(255, 59, 48, 0.85)'; // 恢复原本颜色备用
+                        statusBanner.innerText = '⚠️ 与主机的网络连接已断开，请检查 Wi-Fi';
+                    }, 600);
+                }, 2000);
+            }
+            msgSubmitBtn.disabled = false;
+            msgSubmitBtn.innerText = '共享至局域网';
+        });
+
+        // 1. 文本逻辑 (限制前端渲染条数与后端同步)
         const messageForm = document.getElementById('message-form');
         const messageInput = document.getElementById('message-input');
         const messageList = document.getElementById('message-list');
@@ -132,6 +168,12 @@
         socket.on('new_message', function(data) {
             const noMsg = document.getElementById('no-messages');
             if (noMsg) noMsg.remove();
+            
+            // 优化：保持页面最多显示 50 条
+            if (messageList.children.length >= 50) {
+                messageList.removeChild(messageList.lastChild);
+            }
+
             const li = document.createElement('li');
             li.className = 'list-group-item apple-list-item d-flex justify-content-between align-items-start px-0';
             li.innerHTML = `<pre class="mb-0 text-break" style="white-space: pre-wrap; max-width: 78%; font-family: inherit; margin: 0; font-size: 0.95rem;">${data.message}</pre><button class="btn apple-btn-secondary copy-btn">复制</button>`;
@@ -152,7 +194,7 @@
             }
         });
 
-        // 2. 文件与新加的 TTL 逻辑
+        // 2. 文件与 TTL 逻辑
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const progressContainer = document.getElementById('progress-container');
@@ -160,15 +202,8 @@
         const fileList = document.getElementById('file-list');
         const ttlSelect = document.getElementById('ttl-select');
 
-        // 核心：当用户改变下拉选项时，通过 WebSocket 发送通知
-        ttlSelect.addEventListener('change', function() {
-            socket.emit('update_ttl', { ttl: this.value });
-        });
-
-        // 核心：当收到局域网内其他设备修改时，自动同步本地的下拉菜单选项
-        socket.on('ttl_updated', function(data) {
-            ttlSelect.value = data.ttl;
-        });
+        ttlSelect.addEventListener('change', function() { socket.emit('update_ttl', { ttl: this.value }); });
+        socket.on('ttl_updated', function(data) { ttlSelect.value = data.ttl; });
 
         dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });

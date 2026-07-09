@@ -10,7 +10,8 @@ from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'apple-style-transfer-key!'
-socketio = SocketIO(app, cors_allowed_origins="*")
+# 开启异步模式支持，提升并发性能
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -18,46 +19,49 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 HISTORY_FILE = 'history.json'
 
 # ==========================================
-# 动态 TTL 过期清理配置
+# 工业级性能与安全配置
 # ==========================================
-current_ttl = 86400  # 默认初始化为 24 小时 (单位：秒)
-CHECK_INTERVAL = 2   # 每 2 秒巡查一次，确保短时间删除时反应足够灵敏
+current_ttl = 86400        # 默认 24 小时
+CHECK_INTERVAL = 30        # 优化：巡查间隔提升至 30 秒，极大地降低 CPU 与磁盘 I/O 占用
+MAX_MESSAGES = 50          # 优化：限制历史记录最多 50 条，防止内存溢出和 JSON 读写卡顿
+data_lock = threading.Lock() # 核心：引入线程锁，避免读写冲突引发的崩溃
 
 def auto_cleanup_files():
-    """后台静默清理守护进程"""
+    """后台静默清理守护进程（低耗版）"""
     global current_ttl
     while True:
         time.sleep(CHECK_INTERVAL)
         now = time.time()
         if os.path.exists(app.config['UPLOAD_FOLDER']):
-            for filename in os.listdir(app.config['UPLOAD_FOLDER']):
-                if filename.startswith('.'): continue
-                
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                if os.path.isfile(filepath):
-                    file_mtime = os.path.getmtime(filepath)
-                    # 动态读取当前的 current_ttl
-                    if now - file_mtime > current_ttl:
-                        try:
-                            os.remove(filepath)
-                            print(f"[TTL] 自动销毁过期文件: {filename} (当前TTL: {current_ttl}s)")
-                            socketio.emit('file_deleted', {'filename': filename})
-                        except Exception as e:
-                            print(f"[TTL] 删除失败 {filename}: {e}")
+            # 加锁，防止在清理文件的瞬间，用户恰好在请求文件列表
+            with data_lock:
+                try:
+                    for filename in os.listdir(app.config['UPLOAD_FOLDER']):
+                        if filename.startswith('.'): continue
+                        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                        if os.path.isfile(filepath):
+                            if now - os.path.getmtime(filepath) > current_ttl:
+                                os.remove(filepath)
+                                print(f"[TTL] 自动销毁: {filename}")
+                                socketio.emit('file_deleted', {'filename': filename})
+                except Exception as e:
+                    print(f"[TTL Error] 清理守护线程异常: {e}")
 
 # 启动后台守护线程
 cleanup_thread = threading.Thread(target=auto_cleanup_files, daemon=True)
 cleanup_thread.start()
 # ==========================================
 
-if os.path.exists(HISTORY_FILE):
-    with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
-        try:
-            messages = json.load(f)
-        except json.JSONDecodeError:
-            messages = []
-else:
-    messages = []
+# 优雅的数据加载机制（带防崩保护）
+with data_lock:
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+            try:
+                messages = json.load(f)
+            except (json.JSONDecodeError, ValueError):
+                messages = []
+    else:
+        messages = []
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -86,33 +90,39 @@ def index():
         if 'file' in request.files:
             file = request.files['file']
             if file.filename != '':
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], file.filename))
-                socketio.emit('new_file', {'filename': file.filename})
+                # 优化：防御路径穿越攻击 (保留中文名)
+                safe_name = os.path.basename(file.filename)
+                
+                with data_lock:
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], safe_name))
+                socketio.emit('new_file', {'filename': safe_name})
         return '', 200
 
-    files = os.listdir(app.config['UPLOAD_FOLDER'])
-    files = [f for f in files if not f.startswith('.')]
-    # 记得把当前的 current_ttl 传给前端页面，用于初始化下拉菜单的选中状态
+    with data_lock:
+        files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if not f.startswith('.')]
     return render_template('index.html', messages=messages, files=files, ip=get_local_ip(), current_ttl=current_ttl)
 
 @socketio.on('send_message')
 def handle_message(data):
     msg = data.get('message', '').strip()
     if msg:
-        messages.append(msg)
-        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
-            json.dump(messages, f, ensure_ascii=False, indent=2)
+        with data_lock:  # 保护写操作
+            messages.append(msg)
+            # 限制最大长度
+            if len(messages) > MAX_MESSAGES:
+                messages.pop(0)
+            
+            with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+                json.dump(messages, f, ensure_ascii=False, indent=2)
+                
         emit('new_message', {'message': msg}, broadcast=True)
 
-# 新增：监听任意设备更改过期时间的请求
 @socketio.on('update_ttl')
 def handle_update_ttl(data):
     global current_ttl
     try:
-        new_ttl = int(data.get('ttl', 86400))
-        current_ttl = new_ttl
-        print(f"[TTL] 局域网设置已同步！当前文件生存期变更为: {current_ttl} 秒")
-        # 广播通知局域网内其他所有人，同步更新他们的下拉菜单选项
+        with data_lock:
+            current_ttl = int(data.get('ttl', 86400))
         emit('ttl_updated', {'ttl': current_ttl}, broadcast=True)
     except ValueError:
         pass
@@ -122,4 +132,4 @@ def download(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False) # 正式运行建议关闭 debug
