@@ -1,3 +1,11 @@
+# 忽略 Python 运行产生的缓存
 __pycache__/
+*.pyc
+
+# 忽略文本传输的历史记录文件（核心保护）
+history.json
+
+# 忽略所有真实上传的文件和图片
 uploads/*
+# 允许保留 uploads 目录本身，但不保留里面的内容
 !uploads/.gitkeep
