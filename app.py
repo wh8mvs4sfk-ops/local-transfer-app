@@ -1,10 +1,12 @@
 import os
 import socket
-from flask import Flask, render_template, request, send_from_directory, redirect, url_for
+import io
+import qrcode
+from flask import Flask, render_template, request, send_from_directory, redirect, url_for, send_file
 
 app = Flask(__name__)
 
-# 配置上传文件夹
+# 配置文件上传目录
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -16,7 +18,6 @@ def get_local_ip():
     """获取本机的局域网 IP 地址"""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        # 不需要真的连上，只是为了拿到分配给本机的 IP
         s.connect(('10.255.255.255', 1))
         IP = s.getsockname()[0]
     except Exception:
@@ -24,6 +25,19 @@ def get_local_ip():
     finally:
         s.close()
     return IP
+
+@app.route('/qrcode')
+def get_qrcode():
+    """动态生成当前局域网 IP 的二维码"""
+    ip = get_local_ip()
+    url = f"http://{ip}:5000"
+    
+    img = qrcode.make(url)
+    buf = io.BytesIO()
+    img.save(buf, 'PNG')
+    buf.seek(0)
+    
+    return send_file(buf, mimetype='image/png')
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -37,7 +51,6 @@ def index():
         elif 'file' in request.files:
             file = request.files['file']
             if file.filename != '':
-                # 保存文件到 uploads 文件夹
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], file.filename))
         return redirect(url_for('index'))
 
@@ -51,5 +64,4 @@ def download(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 if __name__ == '__main__':
-    # host='0.0.0.0' 允许局域网内的其他设备访问
     app.run(host='0.0.0.0', port=5000, debug=True)
